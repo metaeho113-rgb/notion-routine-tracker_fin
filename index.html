@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Daily Achievement Tracker</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f7f6f3; --bg3: #f1f0ec;
+    --text: #1a1a18; --text2: #6b6b67; --text3: #9b9b97;
+    --border: rgba(0,0,0,0.12); --border2: rgba(0,0,0,0.2);
+    --success-bg: #eaf3de; --success-text: #3B6D11; --success-border: rgba(59,109,17,0.25);
+    --info-bg: #e6f1fb; --info-text: #185FA5;
+    --radius: 8px; --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c; --bg2: #2a2a28; --bg3: #323230;
+      --text: #f0efeb; --text2: #a0a09c; --text3: #6b6b67;
+      --border: rgba(255,255,255,0.1); --border2: rgba(255,255,255,0.2);
+      --success-bg: #173404; --success-text: #97C459; --success-border: rgba(151,196,89,0.25);
+      --info-bg: #042C53; --info-text: #85B7EB;
+    }
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg3); color: var(--text);
+    min-height: 100vh; padding: 1.5rem;
+  }
+  .tracker { max-width: 680px; margin: 0 auto; }
+
+  .date-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem;
+  }
+  .date-nav { display: flex; gap: 8px; align-items: center; }
+  .date-label { font-size: 15px; font-weight: 500; color: var(--text); }
+  .nav-btn {
+    background: var(--bg); border: 0.5px solid var(--border2);
+    border-radius: var(--radius); width: 30px; height: 30px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    color: var(--text2); font-size: 15px;
+  }
+  .nav-btn:hover { background: var(--bg2); }
+  .today-badge {
+    font-size: 11px; padding: 3px 10px;
+    background: var(--info-bg); color: var(--info-text);
+    border-radius: var(--radius); font-weight: 500;
+  }
+
+  .top-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+
+  .card {
+    background: var(--bg);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+  }
+  .card h3 { font-size: 11px; color: var(--text3); font-weight: 400; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+
+  .donut-card { display: flex; flex-direction: column; align-items: center; }
+  .donut-wrap { position: relative; width: 120px; height: 120px; margin-bottom: 1rem; }
+  .donut-center {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    text-align: center; pointer-events: none;
+  }
+  .donut-pct { font-size: 24px; font-weight: 500; color: var(--text); }
+  .donut-sub { font-size: 11px; color: var(--text3); }
+
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  .check-list { display: flex; flex-direction: column; gap: 8px; }
+  .check-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: var(--radius);
+    border: 0.5px solid var(--border);
+    cursor: pointer; transition: all 0.15s; user-select: none;
+    background: var(--bg2);
+  }
+  .check-item:hover { border-color: var(--border2); }
+  .check-item.done {
+    background: var(--success-bg);
+    border-color: var(--success-border);
+  }
+  .check-icon {
+    width: 22px; height: 22px; border-radius: 50%;
+    border: 1.5px solid var(--border2);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; font-size: 12px; color: var(--text2);
+  }
+  .check-item.done .check-icon {
+    background: var(--success-bg); border-color: var(--success-border);
+    color: var(--success-text);
+  }
+  .check-label { font-size: 14px; color: var(--text); flex: 1; font-weight: 500; }
+  .check-item.done .check-label { color: var(--success-text); }
+  .check-time { font-size: 11px; color: var(--text3); }
+
+  .weekly-card { margin-bottom: 12px; }
+  .weekly-card .legend { justify-content: flex-start; margin-bottom: 12px; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+  .stat-box {
+    background: var(--bg2); border-radius: var(--radius);
+    padding: 10px; text-align: center;
+  }
+  .stat-num { font-size: 20px; font-weight: 500; color: var(--text); }
+  .stat-lbl { font-size: 11px; color: var(--text3); margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="tracker">
+  <div class="date-bar">
+    <div class="date-nav">
+      <button class="nav-btn" onclick="changeDay(-1)"><i class="ti ti-chevron-left"></i></button>
+      <span class="date-label" id="dateLabel"></span>
+      <button class="nav-btn" onclick="changeDay(1)"><i class="ti ti-chevron-right"></i></button>
+    </div>
+    <span class="today-badge" id="todayBadge">오늘</span>
+  </div>
+
+  <div class="top-row">
+    <div class="card donut-card">
+      <h3>오늘 달성률</h3>
+      <div class="donut-wrap">
+        <canvas id="donutChart" width="120" height="120"></canvas>
+        <div class="donut-center">
+          <div class="donut-pct" id="pctLabel">0%</div>
+          <div class="donut-sub" id="cntLabel">0/3</div>
+        </div>
+      </div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>달성</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#D3D1C7"></span>미달성</div>
+      </div>
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column;">
+      <h3>항목 체크</h3>
+      <div class="check-list" id="checkList">
+        <div class="check-item" data-key="innocean" onclick="toggle(this)">
+          <div class="check-icon"><i class="ti ti-building"></i></div>
+          <span class="check-label">INNOCEAN</span>
+          <span class="check-time" id="time-innocean"></span>
+        </div>
+        <div class="check-item" data-key="task" onclick="toggle(this)">
+          <div class="check-icon"><i class="ti ti-checklist"></i></div>
+          <span class="check-label">TASK</span>
+          <span class="check-time" id="time-task"></span>
+        </div>
+        <div class="check-item" data-key="rest" onclick="toggle(this)">
+          <div class="check-icon"><i class="ti ti-leaf"></i></div>
+          <span class="check-label">REST</span>
+          <span class="check-time" id="time-rest"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card weekly-card">
+    <h3>이번 주 일별 달성 현황</h3>
+    <div class="legend">
+      <div class="legend-item"><span class="legend-dot" style="background:#1D9E75"></span>INNOCEAN</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#378ADD"></span>TASK</div>
+      <div class="legend-item"><span class="legend-dot" style="background:#D85A30"></span>REST</div>
+    </div>
+    <div style="position:relative;width:100%;height:160px;">
+      <canvas id="weeklyChart"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>이번 달 달성률 추이</h3>
+    <div style="position:relative;width:100%;height:140px;">
+      <canvas id="monthlyChart"></canvas>
+    </div>
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-num" id="statAvg">-</div>
+        <div class="stat-lbl">이번 달 평균</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statStreak">-</div>
+        <div class="stat-lbl">연속 달성일</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statBest">-</div>
+        <div class="stat-lbl">100% 달성일</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:12px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <h3 style="margin-bottom:0;">월간 달성 캘린더</h3>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="nav-btn" onclick="changeCalMonth(-1)"><i class="ti ti-chevron-left"></i></button>
+        <span style="font-size:12px;color:var(--text2);font-weight:500;" id="calMonthLabel"></span>
+        <button class="nav-btn" onclick="changeCalMonth(1)"><i class="ti ti-chevron-right"></i></button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);"><span style="width:8px;height:8px;border-radius:50%;background:#E24B4A;display:inline-block;"></span>미달성</div>
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);"><span style="width:8px;height:8px;border-radius:50%;background:#EF9F27;display:inline-block;"></span>일부달성</div>
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);"><span style="width:8px;height:8px;border-radius:50%;background:#1D9E75;display:inline-block;"></span>100% 달성</div>
+    </div>
+    <div id="miniCal" style="width:100%;"></div>
+  </div>
+</div>
+
+<script>
+const KEYS = ['innocean','task','rest'];
+const COLORS = { innocean:'#1D9E75', task:'#378ADD', rest:'#D85A30' };
+const LABELS = { innocean:'INNOCEAN', task:'TASK', rest:'REST' };
+const ICON_MAP = { innocean:'ti-building', task:'ti-checklist', rest:'ti-leaf' };
+
+let data = JSON.parse(localStorage.getItem('ach_data_v2') || '{}');
+let currentDate = new Date();
+let calMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+function dateKey(d) { return d.toISOString().slice(0,10); }
+function formatDate(d) {
+  const days = ['일','월','화','수','목','금','토'];
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
+}
+function isToday(d) { return d.toDateString() === new Date().toDateString(); }
+function getDay(d) { return data[dateKey(d)] || { innocean:false, task:false, rest:false }; }
+function saveDay(d, obj) {
+  data[dateKey(d)] = obj;
+  localStorage.setItem('ach_data_v2', JSON.stringify(data));
+}
+function getPct(obj) { return Math.round(KEYS.filter(k=>obj[k]).length / 3 * 100); }
+
+let donutInst, weeklyInst, monthlyInst;
+
+function renderDonut(cnt) {
+  const pct = Math.round(cnt/3*100);
+  document.getElementById('pctLabel').textContent = pct + '%';
+  document.getElementById('cntLabel').textContent = cnt + '/3';
+  if (donutInst) donutInst.destroy();
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const emptyColor = isDark ? '#3a3a38' : '#D3D1C7';
+  const activeColor = cnt===3?'#1D9E75': cnt===2?'#378ADD': cnt===1?'#EF9F27':'#1D9E75';
+  donutInst = new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      datasets: [{
+        data: cnt === 0 ? [0.001, 3] : [cnt, 3-cnt],
+        backgroundColor: [activeColor, emptyColor],
+        borderWidth: 0, hoverOffset: 0,
+      }]
+    },
+    options: {
+      responsive: false, cutout: '72%', animation: { duration: 400 },
+      plugins: { legend: { display: false }, tooltip: { enabled: false } }
+    }
+  });
+}
+
+function renderWeekly() {
+  const today = new Date();
+  const dow = today.getDay();
+  const mon = new Date(today); mon.setDate(today.getDate() - (dow===0?6:dow-1));
+  const days = Array.from({length:7}, (_,i) => { const d=new Date(mon); d.setDate(mon.getDate()+i); return d; });
+  const dayLabels = ['월','화','수','목','금','토','일'];
+  if (weeklyInst) weeklyInst.destroy();
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+  const tickColor = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)';
+  weeklyInst = new Chart(document.getElementById('weeklyChart'), {
+    type: 'bar',
+    data: {
+      labels: dayLabels,
+      datasets: KEYS.map(k => ({
+        label: LABELS[k],
+        data: days.map(d => getDay(d)[k] ? 1 : 0),
+        backgroundColor: COLORS[k],
+        borderRadius: 4, stack: 's',
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ctx.dataset.label + ': ' + (ctx.raw ? '달성' : '미달성') }
+      }},
+      scales: {
+        x: { stacked: true, grid: { color: gridColor }, ticks: { color: tickColor, font:{size:12} } },
+        y: { stacked: true, display: false, max: 3 }
+      }
+    }
+  });
+}
+
+function renderMonthly() {
+  const today = new Date();
+  const year = today.getFullYear(), month = today.getMonth();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const labels = [], vals = [];
+  for (let i=1; i<=daysInMonth; i++) {
+    const d = new Date(year, month, i);
+    if (d > today) break;
+    labels.push(i + '일');
+    vals.push(getPct(getDay(d)));
+  }
+  if (monthlyInst) monthlyInst.destroy();
+  const isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+  const tickColor = isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.45)';
+  monthlyInst = new Chart(document.getElementById('monthlyChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: vals,
+        borderColor: '#1D9E75',
+        backgroundColor: 'rgba(29,158,117,0.08)',
+        borderWidth: 2, fill: true, tension: 0.4,
+        pointRadius: vals.length > 15 ? 0 : 3,
+        pointBackgroundColor: '#1D9E75',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => '달성률: ' + ctx.raw + '%' }
+      }},
+      scales: {
+        x: { grid:{color:gridColor}, ticks:{color:tickColor, font:{size:11}, maxTicksLimit:10, autoSkip:true} },
+        y: { min:0, max:100, grid:{color:gridColor}, ticks:{color:tickColor, font:{size:11}, callback: v=>v+'%', stepSize:33} }
+      }
+    }
+  });
+
+  const nonZero = vals.filter(v=>v>0);
+  const avg = nonZero.length ? Math.round(nonZero.reduce((a,b)=>a+b,0)/nonZero.length) : 0;
+  document.getElementById('statAvg').textContent = avg + '%';
+  let streak = 0;
+  for (let i=vals.length-1; i>=0; i--) { if(vals[i]===100) streak++; else break; }
+  document.getElementById('statStreak').textContent = streak + '일';
+  document.getElementById('statBest').textContent = vals.filter(v=>v===100).length + '일';
+}
+
+function renderAll() {
+  const dayObj = getDay(currentDate);
+  document.getElementById('dateLabel').textContent = formatDate(currentDate);
+  document.getElementById('todayBadge').style.display = isToday(currentDate) ? 'inline' : 'none';
+
+  document.querySelectorAll('.check-item').forEach(el => {
+    const k = el.dataset.key;
+    const done = dayObj[k];
+    el.classList.toggle('done', done);
+    el.querySelector('.check-icon').innerHTML = done
+      ? '<i class="ti ti-check"></i>'
+      : `<i class="ti ${ICON_MAP[k]}"></i>`;
+    const saved = data[dateKey(currentDate)]?.[k+'_time'] || '';
+    document.getElementById('time-'+k).textContent = saved;
+  });
+
+  renderDonut(KEYS.filter(k=>dayObj[k]).length);
+  renderWeekly();
+  renderMonthly();
+  renderMiniCal();
+}
+
+function renderMiniCal() {
+  const y = calMonth.getFullYear(), m = calMonth.getMonth();
+  const today = new Date();
+  const daysInMonth = new Date(y, m+1, 0).getDate();
+  const firstDow = new Date(y, m, 1).getDay();
+  const startOffset = firstDow === 0 ? 6 : firstDow - 1;
+
+  document.getElementById('calMonthLabel').textContent = `${y}년 ${m+1}월`;
+
+  const DAY_NAMES = ['월','화','수','목','금','토','일'];
+  let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center;">`;
+  DAY_NAMES.forEach(d => {
+    html += `<div style="font-size:10px;color:var(--text3);padding:2px 0;font-weight:500;">${d}</div>`;
+  });
+
+  for (let i=0; i<startOffset; i++) {
+    html += `<div></div>`;
+  }
+
+  for (let day=1; day<=daysInMonth; day++) {
+    const d = new Date(y, m, day);
+    const isFuture = d > today;
+    const isCurrentDay = d.toDateString() === today.toDateString();
+    const obj = getDay(d);
+    const cnt = KEYS.filter(k=>obj[k]).length;
+
+    let dotColor = '';
+    let bgStyle = '';
+    let textColor = 'var(--text2)';
+
+    if (!isFuture) {
+      if (cnt === 3) dotColor = '#1D9E75';
+      else if (cnt > 0) dotColor = '#EF9F27';
+      else dotColor = '#E24B4A';
+    }
+
+    if (isCurrentDay) {
+      bgStyle = 'background:var(--info-bg);border-radius:6px;';
+      textColor = 'var(--info-text)';
+    }
+
+    html += `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;padding:3px 1px;${bgStyle}cursor:pointer;" onclick="jumpToDay(${y},${m},${day})">
+      <span style="font-size:11px;color:${textColor};font-weight:${isCurrentDay?'500':'400'};">${day}</span>
+      ${dotColor ? `<span style="width:6px;height:6px;border-radius:50%;background:${dotColor};display:inline-block;"></span>` : `<span style="width:6px;height:6px;display:inline-block;"></span>`}
+    </div>`;
+  }
+
+  html += `</div>`;
+  document.getElementById('miniCal').innerHTML = html;
+}
+
+function changeCalMonth(dir) {
+  calMonth = new Date(calMonth.getFullYear(), calMonth.getMonth() + dir, 1);
+  renderMiniCal();
+}
+
+function jumpToDay(y, m, day) {
+  currentDate = new Date(y, m, day);
+  renderAll();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggle(el) {
+  const k = el.dataset.key;
+  const dayObj = getDay(currentDate);
+  dayObj[k] = !dayObj[k];
+  if (!data[dateKey(currentDate)]) data[dateKey(currentDate)] = {};
+  if (dayObj[k]) {
+    const now = new Date();
+    const t = String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+    data[dateKey(currentDate)][k+'_time'] = t;
+  } else {
+    delete data[dateKey(currentDate)][k+'_time'];
+  }
+  saveDay(currentDate, dayObj);
+  renderAll();
+}
+
+function changeDay(dir) {
+  currentDate = new Date(currentDate);
+  currentDate.setDate(currentDate.getDate() + dir);
+  renderAll();
+}
+
+renderAll();
+</script>
+</body>
+</html>
